@@ -23,21 +23,44 @@ static class SentinelKeyStore
 
         Directory.CreateDirectory(dir);
         var keyPath = Path.Combine(dir, $"save.key");
+        // Try Load
         if (File.Exists(keyPath))
-            return File.ReadAllBytes(keyPath);
+        {
+            try
+            {
+                return File.ReadAllBytes(keyPath);
+            }
+            catch
+            {
+                // If read fails (rare), proceed to generate new
+            }
+        }
 
-        // Generate per-install 32-byte key
+        // Generate new per-install 32-byte key
         var key = RandomNumberGenerator.GetBytes(32);
 
         // Atomic-ish create (temp + move)
         var tmp = keyPath + ".tmp";
         using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            fs.Write(key);
+            fs.Write(key, 0, key.Length);
             fs.Flush(true); // make the key file durable too 
         }
-        if (File.Exists(keyPath)) File.Delete(keyPath); // Rare race condition handling
-        File.Move(tmp, keyPath);
+
+        //Safe Move (Handles race conditions if two instances start at once)
+        try
+        {
+            if (File.Exists(keyPath))
+                File.Delete(keyPath);
+
+            File.Move(tmp, keyPath);
+        }
+        catch
+        {
+            // If Move failed, it means another process probably wrote the key 
+            // at the exact same time. Try reading it again.
+            if (File.Exists(keyPath)) return File.ReadAllBytes(keyPath);
+        }
         return key;
     }
 

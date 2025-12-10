@@ -1,9 +1,9 @@
-﻿using System;
+﻿using MessagePack;
+using System;
 using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using MessagePack;
 
 namespace Helix;
 
@@ -11,7 +11,7 @@ namespace Helix;
 public static class Helix
 {
     // MessagePack is fast/compact and has built-in LZ4 support (great for games). 
-    private static readonly MessagePackSerializerOptions Options =
+    public static readonly MessagePackSerializerOptions Options =
         MessagePackSerializerOptions.Standard
             .WithCompression(MessagePackCompression.Lz4BlockArray)
             // UntrustedData mode is the recommended defensive setting when deserializing untrusted data. 
@@ -33,17 +33,25 @@ public static class Helix
 
     public static void Save<T>(string path, T data)
     {
+        // 1) Serialize (+ LZ4 compression due to options)
+        byte[] payload = MessagePackSerializer.Serialize(data, Options);
+        SaveBytes(path, payload);
+    }
+
+    public static void SaveBytes(string path, byte[] payload) //so serialization and save can be split process in different threads(Helix.Options is public)
+    {
+        //must Serialize on the main thread before putting it in the channel<T> of bg thread, when splitting save between threads (like timer auto-save)
+
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
 
         var tmp = path + ".tmp";
         var bak = path + ".bak";
 
-        // 1) Serialize (+ LZ4 compression due to options)
-        byte[] payload = MessagePackSerializer.Serialize(data, Options);
-
         // 2) Integrity(detects corruption and some save cheating)
         // MAC over header fields + payload (prevents splicing)
         byte[] tag = ComputeTag(FormatVer, payload);
+
+        //aes ahead encrypt: payload?
 
         // 3) Write temp
         using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -55,6 +63,7 @@ public static class Helix
             bw.Write(payload);          // N
             bw.Write(tag);              // 32 integrity
 
+            // CRITICAL: Force OS to write physical bits to disk
             bw.Flush();
             fs.Flush(true); // clears intermediate OS buffers in case of power failure
         }
@@ -76,6 +85,13 @@ public static class Helix
             if (File.Exists(tmp)) File.Delete(tmp);
         }
     }
+
+    /*
+    public static void Append<T>(string path, T eventData)
+    {
+
+    }
+    */
 
     public static T LoadOrNew<T>(string path) where T : new()
     {
@@ -122,6 +138,7 @@ public static class Helix
         }
         catch
         {
+            // File corrupted or format mismatch
             return false;
         }
     }
