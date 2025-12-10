@@ -82,37 +82,63 @@ Helix relies on the MessagePack library.
 ---
 
 ## 🚀 Quick Start
+---
 
-### 1. Define Your Data
+
+### 1. Save and Load
+API calls are static, thread-safe, and handle all file I/O operations safely.
+
+```csharp
+
+using HelixFormatter;
+
+// Saving
+var myState = new GameState();
+Helix.Save(myState, "saves/slot1.sav");
+
+// Loading (Returns new GameState() if file missing or corrupted)
+var loadedState = Helix.LoadOrNew<GameState>("saves/slot1.sav");
+```
+
+
+### 2. Define Your Data
 Helix uses `MessagePackObject` attributes. Versioning is handled via integer Keys. You can add new fields later without breaking old saves.
 
 ```csharp
 using MessagePack;
 
-[MessagePackObject]
-public class GameState
-{
-    // Key(0) allows for version handling if you need custom migration logic later
-    [Key(0)] public int SchemaVersion = 1;
+using HelixFormatter;
 
-    // Complex objects are supported automatically
-    [Key(1)] public PlayerData Player { get; set; } = new();
-    [Key(2)] public WorldData World { get; set; } = new();
-    
-    // Added in Patch 1.2 - Old save files will load this as null/default without crashing
-    [Key(3)] public string? NewDLCRegion { get; set; } 
-}
+    [MessagePackObject]
+    public class GameState
+    {
+        // Key(0) allows for version handling if you need custom migration logic later
+        [Key(0)] public int Version = 1;
 
-[MessagePackObject]
-public class PlayerData 
-{ 
-    [Key(0)] public int Health { get; set; }
-    [Key(1)] public List<string> Inventory { get; set; } 
-}
+        // Complex objects are supported automatically
+        [Key(1)] public PlayerData Player { get; set; } = new();
+        [Key(2)] public WorldData World { get; set; } = new();
+
+        // Added in Patch 1.2 - Old save files will load this as null/default without crashing
+        [Key(3)] public string? NewDLCRegion { get; set; }
+    }
+
+    [MessagePackObject]
+    public class PlayerData
+    {
+        [Key(0)] public int Health { get; set; }
+        [Key(1)] public List<string> Inventory { get; set; } = new List<string>();
+    }
+
+    [MessagePackObject]
+    public class WorldData
+    {
+        [Key(0)] public int year { get; set; }
+    }
 ```
 
 
-### 2. Polymorphism , Circular Ref
+### 3. Polymorphism , Circular Ref
 
 ```csharp
 [MessagePackObject]
@@ -147,18 +173,6 @@ public class Player {
 public class Player {
     public int TargetID; // Save the ID, look it up after loading
 }
-```
-
-### 3. Save and Load
-API calls are static, thread-safe, and handle all file I/O operations safely.
-
-```csharp
-// Saving
-var myState = new GameState();
-Helix.Save("saves/slot1.sav", myState);
-
-// Loading (Returns new GameState() if file missing or corrupted)
-var loadedState = Helix.LoadOrNew<GameState>("saves/slot1.sav");
 ```
 
 ---

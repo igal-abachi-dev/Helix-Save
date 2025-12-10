@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 
-namespace Helix;
+namespace HelixFormatter;
 
 //MessagePack payload + (magic header + checksum) + atomic temp→replace + .bak fallback.
 public static class Helix
@@ -31,7 +31,7 @@ public static class Helix
     Versioning: Future-proofs your data. if data class changes
     */
 
-    public static void Save<T>(string path, T data)
+    public static void Save<T>(T data, string path)
     {
         // 1) Serialize (+ LZ4 compression due to options)
         byte[] payload = MessagePackSerializer.Serialize(data, Options);
