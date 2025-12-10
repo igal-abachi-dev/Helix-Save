@@ -93,11 +93,21 @@ API calls are static, thread-safe, and handle all file I/O operations safely.
 using HelixFormatter;
 
 // Saving
-var myState = new GameState();
-Helix.Save(myState, "saves/slot1.sav");
+var settings = new GameSettings();
+Helix.Save(settings, "saves/settings.hlx");
 
-// Loading (Returns new GameState() if file missing or corrupted)
-var loadedState = Helix.LoadOrNew<GameState>("saves/slot1.sav");
+// Loading (Returns new GameSettings() if file missing or corrupted)
+ settings = Helix.LoadOrNew<GameSettings>("saves/settings.hlx");
+
+var myState = new GameState();
+string timelineId = TemporalCore.CurrentBranch.Id; //guid
+Helix.Save(gameState, $"saves/timeline_{timelineId}.hlx");
+
+// Jump to another branch
+var branch = TemporalCore.GetBranch("helix-prime-616");
+var state = Helix.LoadOrNew<GameState>($"saves/timeline_{branch.Id}.hlx");
+
+//can also be used for auto-save: like every 10 sec on a in memory object
 ```
 
 
