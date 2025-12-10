@@ -19,7 +19,7 @@ public static class Helix
                 .WithMaximumObjectGraphDepth(2048));
 
     // File envelope
-    private static ReadOnlySpan<byte> Magic => "%SAV"u8; // 4 bytes, readable in a hex editor
+    private static ReadOnlySpan<byte> Magic => "%HLX"u8; // 4 bytes, readable in a hex editor
     private const ushort FormatVer = 1;
     private const int HeaderSize = 10; // Magic(4) + Ver(2) + Len(4)
     private const int TagSize = 32;    // HMAC-SHA256

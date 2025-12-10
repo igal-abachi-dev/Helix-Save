@@ -193,7 +193,7 @@ Helix writes a custom binary envelope. The file on disk looks like this:
 
 | Offset | Size | Type | Description |
 | :--- | :--- | :--- | :--- |
-| 0x00 | 4 | `ASCII` | **Magic Header** (`%SAV`) |
+| 0x00 | 4 | `ASCII` | **Magic Header** (`%HLX`) |
 | 0x04 | 2 | `UInt16` | **Format Version** (Internal struct version) |
 | 0x06 | 4 | `Int32` | **Payload Length** (N) |
 | 0x0A | N | `Binary` | **Payload** (MessagePack + LZ4 Compressed) |
