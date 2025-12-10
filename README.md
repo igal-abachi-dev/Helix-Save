@@ -1,5 +1,7 @@
-# Helix-Save // Persistence Layer
+# Helix
 **Helix** is a high-performance, atomic, and tamper-evident binary persistence system designed for .NET  applications/games. 
+can save c# class to binary file
+
 
 It combines LZ4 compression with HMAC-SHA256 integrity checks to ensure save data is small, fast, 
 and immune to corruption or external modification.
