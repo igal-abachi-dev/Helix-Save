@@ -19,7 +19,7 @@ and ease of long-term maintenance (forward-compatible versioning).
 *   **High-Performance Compression:** built on **MessagePack + LZ4**, offering parsing speeds 10x faster than JSON and 50% smaller file sizes.
 *   **Hardware Binding (optional):** Includes a local KeyStore that binds save files to the specific machine/installation (Anti-Cheat / Anti-Sharing).
 *   **Zero-Copy Loading:** Optimized `Span<byte>` and `ReadOnlyMemory<byte>` paths to minimize GC pressure during gameplay.
-
+*   **Type Safe**  won't load wrong classes
 
 No corruption on crash/power loss:
 Atomic File.Replace + Flush(true)
@@ -222,4 +222,4 @@ Helix utilizes a MAC `SentinelKeyStore` to generate a cryptographic key.
 
 1.  **Versioning:** Always append new fields with higher `[Key(x)]` IDs. Never remove or reorder existing keys.
 2.  **Threading:** While `Helix` writes to unique paths safely, do not call `Save` on the *same file path* from multiple threads simultaneously.
-3. **OS** use with windows for ACID,on POSIX filesystems its crash-safe against partial writes,as durable rename typically also requires syncing the parent directory after the rename/replace (add an optional FsyncParentDirectory(path) after File.Replace/File.Move (P/Invoke fsync on the directory FD; macOS may want F_FULLFSYNC)
+3.  **OS** use with windows for ACID,on POSIX filesystems its crash-safe against partial writes,as durable rename typically also requires syncing the parent directory after the rename/replace (add an optional FsyncParentDirectory(path) after File.Replace/File.Move (P/Invoke fsync on the directory FD; macOS may want F_FULLFSYNC)
