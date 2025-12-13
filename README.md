@@ -17,7 +17,7 @@ and ease of long-term maintenance (forward-compatible versioning).
 *   **Atomic Durability:** Uses a transactional `Write Temp` → `Flush(Disk)` → `Atomic Swap` pipeline. Prevents file corruption even if the PC loses power during a save.
 *   **Tamper-Evident Security:** Every file is signed with **HMAC-SHA256**. Modified bytes are detected immediately, preventing save-file editing and splicing attacks.
 *   **High-Performance Compression:** built on **MessagePack + LZ4**, offering parsing speeds 10x faster than JSON and 50% smaller file sizes.
-*   **Hardware Binding:** Includes a local KeyStore that binds save files to the specific machine/installation (Anti-Cheat / Anti-Sharing).
+*   **Hardware Binding (optional):** Includes a local KeyStore that binds save files to the specific machine/installation (Anti-Cheat / Anti-Sharing).
 *   **Zero-Copy Loading:** Optimized `Span<byte>` and `ReadOnlyMemory<byte>` paths to minimize GC pressure during gameplay.
 
 
@@ -190,6 +190,7 @@ public class Player {
 ## 💾 File Format Specification
 
 Helix writes a custom binary envelope. The file on disk looks like this:
+Magic(4) + Ver(2) + TypeHash(32) + Timestamp(8) + Len(4) + Payload(N) + Tag(32)
 
 | Offset | Size | Type | Description |
 | :--- | :--- | :--- | :--- |
@@ -221,3 +222,4 @@ Helix utilizes a MAC `SentinelKeyStore` to generate a cryptographic key.
 
 1.  **Versioning:** Always append new fields with higher `[Key(x)]` IDs. Never remove or reorder existing keys.
 2.  **Threading:** While `Helix` writes to unique paths safely, do not call `Save` on the *same file path* from multiple threads simultaneously.
+3. **OS** use with windows for ACID,on POSIX filesystems its crash-safe against partial writes,as durable rename typically also requires syncing the parent directory after the rename/replace (add an optional FsyncParentDirectory(path) after File.Replace/File.Move (P/Invoke fsync on the directory FD; macOS may want F_FULLFSYNC)
