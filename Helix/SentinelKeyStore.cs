@@ -15,25 +15,33 @@ static class SentinelKeyStore
     static SentinelKeyStore()
     {
         GlobalKey = DecodeGlobalKey();
-        MachineKey = LoadOrCreate(GetAppId());
+        MachineKey = LoadOrCreateMachineKey(GetAppId());
     }
 
     private static string GetAppId() => Assembly.GetExecutingAssembly().GetName().Name!;
 
-    private static byte[] LoadOrCreate(string appName)
+    private static byte[] LoadOrCreateMachineKey(string appName)
     {
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             appName);
 
         Directory.CreateDirectory(dir);
-        var keyPath = Path.Combine(dir, $"save.key");
+        var keyPath = Path.Combine(dir, "machine.key");
         // Try Load
         if (File.Exists(keyPath))
         {
             try
             {
-                return File.ReadAllBytes(keyPath);
+                byte[] raw = File.ReadAllBytes(keyPath);
+                // DPAPI CHECK: Is this Windows?
+                //if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                //{
+                //    // Decrypts using current user credentials. 
+                //    // Fails if file was copied from another PC.
+                //    return ProtectedData.Unprotect(raw, null, DataProtectionScope.CurrentUser);
+                //}
+                return raw; // Linux/Mac/Android fallback (Raw bytes)
             }
             catch
             {
@@ -43,6 +51,11 @@ static class SentinelKeyStore
 
         // Generate new per-install 32-byte key
         var key = RandomNumberGenerator.GetBytes(32);
+        // 3. Encrypt before saving (Windows Only)
+        //if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        //{
+        //    key = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
+        //}
 
         // Atomic-ish create (temp + move)
         var tmp = keyPath + ".tmp";
@@ -64,7 +77,7 @@ static class SentinelKeyStore
         {
             // If Move failed, it means another process probably wrote the key 
             // at the exact same time. Try reading it again.
-            if (File.Exists(keyPath)) return File.ReadAllBytes(keyPath);
+            if (File.Exists(keyPath)) return File.ReadAllBytes(keyPath); //no call to LoadOrCreateMachineKey to not loop
         }
         return key;
     }
@@ -104,7 +117,7 @@ static class SentinelKeyStore
         // Use a compile-time constant string logic, but treat it as bytes
 
         // Use a string that is exactly 32 chars or longer 
-        ReadOnlySpan<byte> salt = "H3l1x-DoN0tCh@ngeThisString!!"u8;
+        ReadOnlySpan<byte> salt = "H3l1x-DoN0tCh@ngeThisString#%@!!"u8;
         // XOR Mix (vernam Obfuscation)
         // This ensures the final key is not just the numbers above.
         for (int i = 0; i < buffer.Length; i++)
@@ -116,7 +129,7 @@ static class SentinelKeyStore
     }
     /*
 
-     maybe use DPAPI on the key to secure it better in windows,
+     maybe use DPAPI on the key to secure it better in windows, problem its windows only?
 
      HMAC is great for tamper-evidence if the key is secret. But :
 
