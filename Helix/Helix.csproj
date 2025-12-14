@@ -2,10 +2,22 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>Helix</RootNamespace>
+    <RootNamespace>HelixFormatter</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
-  </PropertyGroup>
+	  <LangVersion>latest</LangVersion>
+
+		<!-- NuGet Metadata -->
+		<PackageId>Helix.Save</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>Igal Abachi</Authors>
+		<Company>Igal Abachi Dev</Company>
+		<Description>High-perf ACID reliable, tamper-evident class to binary save system for .NET.</Description>
+		<PackageTags>save-system;serialization;messagepack;lz4;persistence;unity;game-dev</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/igal-abachi-dev/Helix-Save</RepositoryUrl>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MessagePack" Version="3.1.4" />
