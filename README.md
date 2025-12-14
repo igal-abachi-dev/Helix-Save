@@ -1,7 +1,7 @@
 # Helix-Save // Secure, Atomic, Fast Binary Serialization
 **Helix** formatter is a high-performance, atomic, and tamper-evident binary persistence system designed for .NET  applications/games. 
 can save c# class to binary file (signed , compressed, not editable externally by users, acid like reliablity)
-like internal settings , and game states.. (for external settings editable by users use json instead)
+like internal settings , and game states.. (for external settings editable by users use json instead if no in-app GUI editor for them)
 
 ## It serializes C# classes to binary files that are **Signed**, **Compressed**, **Type-Safe**, and **ACID-Compliant**.
 
