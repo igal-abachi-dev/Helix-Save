@@ -15,6 +15,8 @@ and ease of long-term maintenance (forward-compatible versioning).
 > JSON is editable and slow. Raw BinaryWriter is fragile. SQLite is overkill.
 > Helix sits in the middle: It combines the speed of **MessagePack + LZ4** with a binary envelope that ensures your data is never corrupted, swapped, or tampered with.
 
+[![NuGet](https://img.shields.io/nuget/v/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
 ---
 
 ## ⚡ Core Features
