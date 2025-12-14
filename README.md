@@ -17,6 +17,24 @@ and ease of long-term maintenance (forward-compatible versioning).
 
 [![NuGet](https://img.shields.io/nuget/v/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
+
+> **why not just messagepack alone?**
+ Helix has a strong envelop format , messagepack is missing for Persistence & reliability,
+ when used for files instead of network streams of many GB size
+
+use case:
+1. You are saving "Documents" to disk
+Examples: Game Saves, User Settings, Application Config, Cached Data.
+Why: You need ACID safety. If you use raw File.WriteAllBytes and the power cuts out, the file becomes 0 bytes and the user loses everything. Helix guarantees this never happens.
+
+2. You need Security/Integrity
+Examples: Preventing users from hacking their gold/level, or ensuring a config file hasn't been corrupted by a bad disk sector.
+Why: Raw MessagePack has no checksum. Helix has HMAC-SHA256.
+
+3. You need Versioning Safety
+Examples: Ensuring you don't load a Settings file into a Player object.
+Why: Raw MessagePack will happily try to deserialize garbage data into your class, 
+resulting in weird nulls or crashes. Helix's TypeHash stops this immediately.
 ---
 
 ## ⚡ Core Features
@@ -271,6 +289,9 @@ Helix uses `SentinelKeyStore` to manage keys based on the `portable` flag.
 
 1.  **Versioning:** Always append new fields with higher `[Key(x)]` IDs. Never remove or reorder existing keys.
 2.  **Threading:** While `Helix` writes to unique paths safely, do not call `Save` on the *same file path* from multiple threads simultaneously.
+
+If your game state updates at 60 FPS, you should not write to disk at 60 FPS. You should write to Memory at 60 FPS, and flush to Disk every few seconds (or when the game pauses/exits).
+
 3.  **OS** use with windows for ACID,on POSIX filesystems its crash-safe against partial writes,as durable rename typically also requires syncing the parent directory after the rename/replace (add an optional FsyncParentDirectory(path) after File.Replace/File.Move (P/Invoke fsync on the directory FD; macOS may want F_FULLFSYNC)
 
 
