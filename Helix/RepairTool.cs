@@ -104,11 +104,33 @@ public static class HelixRepairTool
 
 
 /*
+
+use: internal Classes + InternalsVisibleTo (Compile-Time Defense)
+   If your GameState class is public, anyone can reference Game.dll and create a new GameState().
+   If you make it internal, their Console App cannot see the class to manipulate it.
+[MessagePackObject]
+   internal class GameState // <--- Changed from public
+   {
+       [Key(0)] public int Gold { get; set; }
+   }
+// Allow MessagePack's generated resolver to see your internal classes
+   [assembly: InternalsVisibleTo("MessagePack.Resolvers.DynamicObjectResolver")]
+   [assembly: InternalsVisibleTo("MessagePack.Generator")]
+
+// Configure MessagePack to allow internal types
+   var options = MessagePackSerializerOptions.Standard
+       .WithResolver(MessagePack.Resolvers.StandardResolver.AllowPrivate);
+
+
+you must restrict where it is used.
+   1. The "Config Only" Pattern (Recommended)
+   Allow users to repair settings.hlx (Resolution, Volume), but DO NOT add the code hook for save.hlx (Gold, XP).
+
  usage:
 static void Main(string[] args)
    {
        // 1. Check if the user is trying to repair/convert files
-
+        //Allow repairing settings (if resolution is broken, user can fix it)
        // If true, the tool runs and we return immediately.
        if (HelixRepairTool.HandleConsoleArgs<GameConfig>(args, "config.hlx", portable: false))
        {
@@ -116,9 +138,15 @@ static void Main(string[] args)
        }
 //else:
    
-       // 2. Normal Application Start
-       var config = Helix.LoadOrNew<GameConfig>("config.hlx", portable: false);
-       RunGame(config);
+
+   // DANGER: Do NOT add this line for your Save File if you don't want cheaters
+   // if (HelixRepairTool.HandleConsoleArgs<GameState>(args, "save.hlx", portable: true)) return;
+
+   // 2. Normal Application Start
+   var settings = Helix.LoadOrNew<GameSettings>("config.hlx", portable: false);
+   var save = Helix.LoadOrNew<GameState>("save.hlx", portable: true);
+   
+   RunGame(settings, save);
    }
  
  */
