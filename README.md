@@ -81,6 +81,14 @@ Overkill, complex, slower
 *sqlite like binary
 no need for searching or partial reading
 
+*json
+1) Local Cache / Blobs (cache.hlx):
+Why: If your app downloads 10,000 products from an API, save them locally in Helix. Parsing 50MB of JSON is slow; parsing 25MB of Helix is instant.
+2) Complex Object Graphs:
+Why: JSON struggles with circular references and polymorphism (inheritance). Helix (MessagePack) handles them natively.
+
+by default all private data that is not user editable should be binary , the rest can be json
+
 
 * unity has paid Easy Save / Odin Serializer products , godot FileAccess.StoreVar Save System	,
 helix uses HMAC (Signing) + Hardware Binding,  designed to prevent tampering even if the file is readable.
