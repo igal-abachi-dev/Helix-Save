@@ -3,6 +3,7 @@
 can save c# class to binary file (signed , compressed, not editable externally by users, acid like reliablity)
 like internal settings , and game states.. (for external settings editable by users use json instead)
 
+## It serializes C# classes to binary files that are **Signed**, **Compressed**, **Type-Safe**, and **ACID-Compliant**.
 
 It combines LZ4 compression with HMAC-SHA256 integrity checks to ensure save data is small, fast, 
 and immune to corruption or external modification.
@@ -10,16 +11,20 @@ and immune to corruption or external modification.
 Designed for reliability under power-loss conditions (ACID-compliant file swapping)
 and ease of long-term maintenance (forward-compatible versioning).
 
+> **Why Helix?**
+> JSON is editable and slow. Raw BinaryWriter is fragile. SQLite is overkill.
+> Helix sits in the middle: It combines the speed of **MessagePack + LZ4** with a binary envelope that ensures your data is never corrupted, swapped, or tampered with.
+
 ---
 
 ## ⚡ Core Features
 
 *   **Atomic Durability:** Uses a transactional `Write Temp` → `Flush(Disk)` → `Atomic Swap` pipeline. Prevents file corruption even if the PC loses power during a save.
-*   **Tamper-Evident Security:** Every file is signed with **HMAC-SHA256**. Modified bytes are detected immediately, preventing save-file editing and splicing attacks.
+*   **Tamper-Evident Security:** Every file is signed with **HMAC-SHA256**. Modified bytes are detected immediately, preventing hex-editing and save-splicing attacks.
 *   **High-Performance Compression:** built on **MessagePack + LZ4**, offering parsing speeds 10x faster than JSON and 50% smaller file sizes.
 *   **Hardware Binding (optional):** Includes a local KeyStore that binds save files to the specific machine/installation (Anti-Cheat / Anti-Sharing).
 *   **Zero-Copy Loading:** Optimized `Span<byte>` and `ReadOnlyMemory<byte>` paths to minimize GC pressure during gameplay.
-*   **Type Safe**  won't load wrong classes
+*   **Type Safe** The header includes a **SHA-256 Hash** of the C# Class Type. won't load wrong classes
 
 No corruption on crash/power loss:
 Atomic File.Replace + Flush(true)
@@ -99,6 +104,9 @@ Helix.Save(settings, "saves/settings.hlx");
 // Loading (Returns new GameSettings() if file missing or corrupted)
  settings = Helix.LoadOrNew<GameSettings>("saves/settings.hlx");
 
+var secrets = new AppCredentials { ApiKey = "12345" };
+Helix.Save(secrets, "config/secrets.hlx", portable: false);//cant move to other user/machine
+
 var myState = new GameState();
 string timelineId = TemporalCore.CurrentBranch.Id; //guid
 Helix.Save(gameState, $"saves/timeline_{timelineId}.hlx");
@@ -113,6 +121,7 @@ var state = Helix.LoadOrNew<GameState>($"saves/timeline_{branch.Id}.hlx");
 
 ### 2. Define Your Data
 Helix uses `MessagePackObject` attributes. Versioning is handled via integer Keys. You can add new fields later without breaking old saves.
+Use standard MessagePack attributes. Versioning is handled via integer Keys.
 
 ```csharp
 using MessagePack;
@@ -183,6 +192,29 @@ public class Player {
 public class Player {
     public int TargetID; // Save the ID, look it up after loading
 }
+
+
+//saving multiple objects: let message pack handle it:
+
+[MessagePackObject]
+public class WorldSave
+{
+    [Key(0)] public LevelState Level1 { get; set; }
+    [Key(1)] public LevelState Level2 { get; set; }
+}
+
+
+[MessagePackObject]
+public class SaveBundle
+{
+    [Key(0)] public string BundleName;
+    [Key(1)] public List<GameState> States; // The array is inside
+}
+
+is better than:
+
+//var saves = new List<GameState> { state1, state2, state3 };
+//Helix.Save(saves, "all_saves.hlx");
 ```
 
 ---
@@ -190,19 +222,28 @@ public class Player {
 ## 💾 File Format Specification
 
 Helix writes a custom binary envelope. The file on disk looks like this:
+strict **50-byte Binary Header** followed by the compressed payload.
+
+
+
+**Layout:** `[Magic] [Ver] [TypeHash] [Timestamp] [Length] [Payload...] [HMAC]`
 Magic(4) + Ver(2) + TypeHash(32) + Timestamp(8) + Len(4) + Payload(N) + Tag(32)
 
 | Offset | Size | Type | Description |
 | :--- | :--- | :--- | :--- |
 | 0x00 | 4 | `ASCII` | **Magic Header** (`%HLX`) |
 | 0x04 | 2 | `UInt16` | **Format Version** (Internal struct version) |
-| 0x06 | 4 | `Int32` | **Payload Length** (N) |
-| 0x0A | N | `Binary` | **Payload** (MessagePack + LZ4 Compressed) |
-| 0x0A+N | 32 | `Bytes` | **Integrity Tag** (HMAC-SHA256 of Header(format ver and payload length) + Payload) |
+| 0x06 | 32 | `Bytes` | **Type Hash** (SHA-256 of the C# Class Name) |
+| 0x26 | 8 | `Int64` | **Timestamp** (UTC Ticks, signed by HMAC) |
+| 0x2E | 4 | `Int32` | **Payload Length** (N) |
+| 0x32 | N | `Binary` | **Payload** (MessagePack + LZ4 Compressed) |
+| 0x32+N | 32 | `Bytes` | **Integrity Tag** (HMAC-SHA256 of Header(format ver class type hash and timestamp ) + Payload) |
 
 *   **Magic Header:** Validates file type instantly.
 *   **Payload Length:** Strict bounds checking prevents buffer overflow attacks during load.
 *   **HMAC Tag:** Verifies that the header and payload have not been modified.
+*   **Type Hash:** Ensures `Helix.Load<Player>(file)` fails immediately if the file actually contains `Settings` data.
+*   **Timestamp:** The save time is embedded in the signed header. Prevents "Rollback Attacks" (users trying to fake save times).
 
 ---
 
@@ -210,11 +251,17 @@ Magic(4) + Ver(2) + TypeHash(32) + Timestamp(8) + Len(4) + Payload(N) + Tag(32)
 
 Helix utilizes a MAC `SentinelKeyStore` to generate a cryptographic key.
 
-*   **Current Mode:** **Per-Install Isolation.**
+*   **Machine key Mode:** **Per-Install Isolation.**
     *   A random 32-byte key is generated in `%LocalAppData%` upon first run.
     *   **Effect:** Save files copied to another PC will fail the Integrity Check (won't load). This prevents casual save sharing.
-*   **Cloud Save Mode (Optional):**
-    *   To support Steam Cloud / Cross-Save, modify `MacKeyStore.cs` to use a hardcoded (obfuscated) static key instead of a generated one.
+
+Helix uses `SentinelKeyStore` to manage keys based on the `portable` flag.
+
+### Mode A: Portable (Default)
+*   **Use Case:** Cloud, Shareable Files.
+
+### Mode B: Machine Local key (secure apps/non cloud games)
+*   **Use Case:** Login Tokens, cached credentials, non sharable game files 
 
 ---
 
