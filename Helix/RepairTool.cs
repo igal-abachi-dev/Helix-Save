@@ -107,7 +107,9 @@ public static class HelixRepairTool
 
 use: internal Classes + InternalsVisibleTo (Compile-Time Defense)
    If your GameState class is public, anyone can reference Game.dll and create a new GameState().
-   If you make it internal, their Console App cannot see the class to manipulate it.
+   If you make it internal, their Console App cannot see the class to manipulate it. , 
+Reflection (Type.GetType("Game.GameState")) can bypass it, but that is much harder 
+
 [MessagePackObject]
    internal class GameState // <--- Changed from public
    {
@@ -148,5 +150,10 @@ static void Main(string[] args)
    
    RunGame(settings, save);
    }
+
+Solution: Bind Key to Assembly Signature (Strong Naming)
+   This is the strongest programmatic defense.
+   You Sign your Game/App: In Visual Studio/Unity, you generate a Signing Key.
+   Helix Checks the Signature: Helix derives the encryption key based on the Public Key Token of the executable.
  
  */
