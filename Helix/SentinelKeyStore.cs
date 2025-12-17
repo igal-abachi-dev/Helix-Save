@@ -39,7 +39,7 @@ static class SentinelKeyStore
                 //{
                 //    // Decrypts using current user credentials. 
                 //    // Fails if file was copied from another PC.
-                //    return ProtectedData.Unprotect(raw, null, DataProtectionScope.CurrentUser);
+                //    return ProtectedData.Unprotect(raw, null, DataProtectionScope.CurrentUser); //disabled because it works only on windows
                 //}
                 return raw; // Linux/Mac/Android fallback (Raw bytes)
             }
@@ -54,7 +54,7 @@ static class SentinelKeyStore
         // 3. Encrypt before saving (Windows Only)
         //if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         //{
-        //    key = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
+        //    key = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);//disabled because it works only on windows
         //}
 
         // Atomic-ish create (temp + move)
