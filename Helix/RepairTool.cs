@@ -16,25 +16,22 @@ public static class HelixRepairTool
     /// </summary>
     public static bool HandleConsoleArgs<T>(string[] args, string hlxPath, bool portable = true) where T : new()
     {
-        if (args == null || args.Length == 0) return false;
+        bool exit = false;
+        if (args == null || args.Length == 0) return exit;
 
         string command = args[0];
-        // Optional: Allow overriding the path via 2nd arg
         string targetPath = args.Length > 1 ? args[1] : hlxPath;
-
         if (command == "--helix-export")
         {
             ExportJson<T>(targetPath, portable);
-            return true; // Signal to Main() to exit
+            exit =  true; // exit Main()
         }
-
-        if (command == "--helix-import")
+        else if (command == "--helix-import")
         {
             ImportJson<T>(targetPath, portable);
-            return true; // Signal to Main() to exit
+            exit = true; // exit Main()
         }
-
-        return false;
+        return exit;
     }
 
     private static void ExportJson<T>(string hlxPath, bool portable) where T : new()
@@ -69,7 +66,7 @@ public static class HelixRepairTool
         }
     }
 
-    private static void ImportJson<T>(string hlxPath, bool portable)
+    private static void ImportJson<T>(string hlxPath, bool portable) where T : new()
     {
         string jsonPath = hlxPath + ".json";
         Console.WriteLine($"[Helix] Importing JSON: {jsonPath}");
@@ -116,12 +113,8 @@ Reflection (Type.GetType("Game.GameState")) can bypass it, but that is much hard
        [Key(0)] public int Gold { get; set; }
    }
 // Allow MessagePack's generated resolver to see your internal classes
+   [assembly: InternalsVisibleTo("MessagePack")]
    [assembly: InternalsVisibleTo("MessagePack.Resolvers.DynamicObjectResolver")]
-   [assembly: InternalsVisibleTo("MessagePack.Generator")]
-
-// Configure MessagePack to allow internal types
-   var options = MessagePackSerializerOptions.Standard
-       .WithResolver(MessagePack.Resolvers.StandardResolver.AllowPrivate);
 
 
 you must restrict where it is used.
@@ -151,7 +144,7 @@ static void Main(string[] args)
    RunGame(settings, save);
    }
 
-Solution: Bind Key to Assembly Signature (Strong Naming)
+Solution 2: Bind Key to Assembly Signature (Strong Naming) //best but impl later , not for now , this is so that others cant import dll and load hlx and create instance of internal class with reflection,
    This is the strongest programmatic defense.
    You Sign your Game/App: In Visual Studio/Unity, you generate a Signing Key.
    Helix Checks the Signature: Helix derives the encryption key based on the Public Key Token of the executable.

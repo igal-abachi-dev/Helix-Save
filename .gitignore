@@ -53,3 +53,4 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 .vs/
+Helix-Save.sln.DotSettings.user
