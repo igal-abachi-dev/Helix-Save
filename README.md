@@ -17,6 +17,14 @@ and ease of long-term maintenance (forward-compatible versioning).
 
 [![NuGet](https://img.shields.io/nuget/v/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Helix.Save.svg)](https://www.nuget.org/packages/Helix.Save)
+---
+
+## 📦 Installation
+
+```bash
+dotnet add package Helix.Save
+```
+---
 
 > **why not just messagepack alone?**
  Helix has a strong envelop format , messagepack is missing for Persistence & reliability,
@@ -45,6 +53,8 @@ resulting in weird nulls or crashes. Helix's TypeHash stops this immediately.
 *   **Hardware Binding (optional):** Includes a local KeyStore that binds save files to the specific machine/installation (Anti-Cheat / Anti-Sharing).
 *   **Zero-Copy Loading:** Optimized `Span<byte>` and `ReadOnlyMemory<byte>` paths to minimize GC pressure during gameplay.
 *   **Type Safe** The header includes a **SHA-256 Hash** of the C# Class Type. won't load wrong classes
+*   **Repairable:** Includes tool to export binary data to JSON for debugging or fixing user issues. and import back to binary , for user settings
+*   **Flexibility:** can extract msgpack uncompressed payload and strip envelop , to use interop with other langs/net streams , can save uncompressed , can save without bak file for big downloads caches use case
 
 No corruption on crash/power loss:
 Atomic File.Replace + Flush(true)
@@ -243,6 +253,34 @@ is better than:
 
 //var saves = new List<GameState> { state1, state2, state3 };
 //Helix.Save(saves, "all_saves.hlx");
+
+
+//--   internal protection from dll import:
+make classes of msgpack objects, internal instead of public
+and on assembly info file:
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("MessagePack")]
+[assembly: InternalsVisibleTo("MessagePack.Resolvers.DynamicObjectResolver")]
+```
+
+### 4. The Repair Tool (JSON Interop)
+Binary files are hard to debug. Helix includes a helper to let you (or your users) fix broken files by converting them to JSON and import back. [only for the files/classes you choose that allow it]
+
+Add this to your `Main()` / Startup:
+
+```csharp
+static void Main(string[] args)
+{
+    // Check for CLI args to convert files
+    // Usage: MyGame.exe --helix-export saves/slot1.hlx
+    if (HelixRepairTool.HandleConsoleArgs<GameState>(args, "saves/slot1.hlx", portable: true))
+    {
+        return; // Exit after tool runs
+    }
+
+    // Normal Game Start...
+}
 ```
 
 ---
@@ -250,22 +288,21 @@ is better than:
 ## 💾 File Format Specification
 
 Helix writes a custom binary envelope. The file on disk looks like this:
-strict **50-byte Binary Header** followed by the compressed payload.
+strict **51-byte Binary Header** followed by the compressed payload.
 
-
-
-**Layout:** `[Magic] [Ver] [TypeHash] [Timestamp] [Length] [Payload...] [HMAC]`
-Magic(4) + Ver(2) + TypeHash(32) + Timestamp(8) + Len(4) + Payload(N) + Tag(32)
+**Layout:** `[Magic] [Ver] [Flags] [TypeHash] [Timestamp] [Length] [Payload...] [HMAC]`
+Magic(4) + Ver(2) + Flags(1) + TypeHash(32) + Timestamp(8) + Len(4) + Payload(N) + Tag(32)
 
 | Offset | Size | Type | Description |
 | :--- | :--- | :--- | :--- |
-| 0x00 | 4 | `ASCII` | **Magic Header** (`%HLX`) |
-| 0x04 | 2 | `UInt16` | **Format Version** (Internal struct version) |
-| 0x06 | 32 | `Bytes` | **Type Hash** (SHA-256 of the C# Class Name) |
-| 0x26 | 8 | `Int64` | **Timestamp** (UTC Ticks, signed by HMAC) |
-| 0x2E | 4 | `Int32` | **Payload Length** (N) |
-| 0x32 | N | `Binary` | **Payload** (MessagePack + LZ4 Compressed) |
-| 0x32+N | 32 | `Bytes` | **Integrity Tag** (HMAC-SHA256 of Header(format ver class type hash and timestamp ) + Payload) |
+| 0 | 4 | `ASCII` | **Magic Header** (`%HLX`) |
+| 4 | 2 | `UInt16` | **Format Version** (Internal struct version) |
+| 6 | 1 | `Byte` | **Flags** (Compression: 0=None, 1=LZ4) |
+| 7 | 32 | `Byte[]` | **Type Hash** (SHA-256 of the C# Class Name) |
+| 39 | 8 | `Int64` | **Timestamp** (UTC Ticks, signed by HMAC) |
+| 47 | 4 | `Int32` | **Payload Length** (N) |
+| 51 | N | `Byte[]` | **Payload** (MessagePack + LZ4 Compressed[optional]) |
+| 51+N | 32 | `Byte[]` | **Integrity Tag** (HMAC-SHA256 of Header(format ver class type hash and timestamp ) + Payload) |
 
 *   **Magic Header:** Validates file type instantly.
 *   **Payload Length:** Strict bounds checking prevents buffer overflow attacks during load.
