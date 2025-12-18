@@ -20,6 +20,7 @@ and ease of long-term maintenance (forward-compatible versioning).
 ---
 
 ## 📦 Installation
+> compiles to dotnet 10 anyCpu dll ,prefer windows 11 os and vs2026 when possible
 
 ```bash
 dotnet add package Helix.Save
