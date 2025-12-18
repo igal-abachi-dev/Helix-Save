@@ -374,10 +374,83 @@ The "Correct" Architecture for Large Data: Sharding
 If you have a game or app with too much data for one Helix file (e.g., an Open World game), do not split the file internally. Instead, split your data into multiple Helix files.
 This is how Minecraft and Skyrim work. They don't put the whole world in one file.
 
+
 Use Helix for: Game States, App Configs, User Session Blobs, Key/Value storage.
-/Saves/Slot1/
-    ├── player.hlx       (Small, encrypted, atomic) -> Player stats, Inventory
-    ├── world_global.hlx (Medium) -> Quest states, Global variables
-    ├── region_0_0.hlx   (Large) -> Terrain/Objects for Map Sector 0,0
-    ├── region_0_1.hlx   (Large) -> Terrain/Objects for Map Sector 0,1
-    └── metadata.hlx     (Tiny) -> Timestamp, Screenshot, Level Name
+```csharp
+// /Saves/Slot1/
+//     ├── player.hlx       (Small, encrypted, atomic) -> Player stats, Inventory
+//     ├── world_global.hlx (Medium) -> Quest states, Global variables
+//     ├── region_0_0.hlx   (Large) -> Terrain/Objects for Map Sector 0,0
+//     ├── region_0_1.hlx   (Large) -> Terrain/Objects for Map Sector 0,1
+//     └── metadata.hlx     (Tiny) -> Timestamp, Screenshot, Level Name
+```
+	
+	
+
+---
+
+# 📚 Helix.Save API Reference
+
+## Namespace: `HelixFormatter`
+>	Note: `SentinelKeyStore` is omitted because it is defined as `internal`, making it inaccessible outside the library.
+
+### 1. `public static class Helix`
+The core class for handling binary serialization, file I/O, and ACID operations.
+
+#### **Configuration Fields**
+*   **`public static readonly MessagePackSerializerOptions Options`**
+    *   The default options used for serialization.
+    *   **Settings:** LZ4 Compression (BlockArray), allows private/internal classes, security enabled (UntrustedData).
+*   **`public static readonly MessagePackSerializerOptions OptionsNoCompression`**
+    *   Options used when `compress` is set to `false`.
+    *   **Settings:** No Compression, allows private/internal classes, security enabled.
+
+#### **Core Persistence Methods**
+*   **`public static void Save<T>(T data, string path, bool portable = true, bool backup = true, bool compress = true)`**
+    *   Serializes an object of type `T` and saves it to the specified path with an atomic swap.
+    *   **Constraints:** `where T : new()`
+    *   **Parameters:**
+        *   `path`: File destination.
+        *   `portable`: If `true` (default), uses the Global Key (Cloud/Game saves). If `false`, uses Machine Key (DPAPI/Local saves).
+        *   `backup`: If `true` (default), keeps the previous version as `.bak`.
+        *   `compress`: If `true` (default), uses LZ4. If `false`, uses raw MessagePack (useful for interop).
+
+*   **`public static void SaveRawMsgPackBytes<T>(string path, byte[] payload, bool portable = true, bool backup = true, bool isCompressed = true)`**
+    *   Wraps pre-serialized bytes into the Helix binary envelope (Header + HMAC) and saves to disk.
+    *   **Constraints:** `where T : new()` (Used for TypeHash calculation).
+
+*   **`public static T LoadOrNew<T>(string path, bool portable = true)`**
+    *   Attempts to load and deserialize the file.
+    *   **Returns:** The loaded data, or `new T()` if the file is missing, corrupted, or has a hash mismatch.
+    *   **Constraints:** `where T : new()`
+
+*   **`public static T LoadOrFail<T>(string path, bool portable = true)`**
+    *   Attempts to load and deserialize the file.
+    *   **Throws:** `FileNotFoundException` or `InvalidOperationException` if loading fails (does not return a default object).
+    *   **Constraints:** `where T : new()`
+
+#### **Static File Helpers**
+*Convenience wrappers that save simple types inside the Helix envelope.*
+
+*   **`public static string ReadAllText(string path, bool portable = true)`**
+*   **`public static void WriteAllText(string path, string? contents, bool portable = true)`**
+*   **`public static void WriteAllText(string path, ReadOnlySpan<char> contents, bool portable = true)`**
+*   **`public static byte[] ReadAllBytes(string path, bool portable = true)`**
+*   **`public static void WriteAllBytes(string path, byte[] bytes, bool portable = true)`**
+*   **`public static string[] ReadAllLines(string path, bool portable = true)`**
+*   **`public static void WriteAllLines(string path, string[] contents, bool portable = true)`**
+*   **`public static void WriteAllLines(string path, IEnumerable<string> contents, bool portable = true)`**
+
+---
+
+### 2. `public static class HelixRepairTool`
+A utility class meant to be called during application startup to handle command-line maintenance tasks (Exporting/Importing JSON).
+
+#### **Methods**
+*   **`public static bool HandleConsoleArgs<T>(string[] args, string hlxPath, bool portable = true)`**
+    *   Checks the provided command-line arguments for specific Helix commands.
+    *   **Commands Handled:**
+        *   `--helix-export`: Converts the binary file to a readable `.json` file.
+        *   `--helix-import`: Converts a `.json` file back to the binary format.
+    *   **Returns:** `true` if a command was executed (indicating the app should likely exit), `false` if normal execution should continue.
+    *   **Constraints:** `where T : new()`
