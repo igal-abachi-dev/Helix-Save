@@ -119,8 +119,8 @@ instead of whole file
 Helix relies on the MessagePack library.
 
 ```xml
-<PackageReference Include="MessagePack" Version="2.*" />
-<PackageReference Include="MessagePack.Annotations" Version="2.*" />
+    <PackageReference Include="MessagePack" Version="3.1.4" />
+    <PackageReference Include="MessagePack.Annotations" Version="3.1.4" />
 ```
 
 ---
