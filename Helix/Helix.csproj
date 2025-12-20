@@ -9,8 +9,8 @@
 
 		<!-- NuGet Metadata -->
 		<PackageId>Helix.Save</PackageId>
-		<Version>1.0.1</Version>
-		<FileVersion>1.0.1.0</FileVersion>
+		<Version>1.0.2</Version>
+		<FileVersion>1.0.2.0</FileVersion>
 		<!-- STRICT: Only change this when you make BREAKING changes (Major version). -->
 		<!-- If you change this, users must recompile their apps to use the new DLL. -->
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>

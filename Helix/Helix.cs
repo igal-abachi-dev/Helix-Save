@@ -271,14 +271,14 @@ public static class Helix
         }
     }
 
-    // To Pure MessagePack for other lang introp/network stream
-    private static void ExtractMsgPackToFile<T>(string path, bool portable = true) where T : new()
+    // extract To Pure MessagePack for other lang introp/network stream
+    public static void ExtractMsgPackToFile<T>(string path, bool portable = true) where T : new()
     {
         byte[] rawBytes = ExtractMsgPackCore<T>(path, portable);
         string outPath = Path.ChangeExtension(path, ".msgpack");
         File.WriteAllBytes(outPath, rawBytes);
     }
-    private static MemoryStream ExtractMsgPackToStream<T>(string path, bool portable = true) where T : new()
+    public static MemoryStream ExtractMsgPackToStream<T>(string path, bool portable = true) where T : new()
     {
         byte[] rawBytes = ExtractMsgPackCore<T>(path, portable);
         return new MemoryStream(rawBytes, false);
