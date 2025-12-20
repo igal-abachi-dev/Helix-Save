@@ -193,6 +193,23 @@ using HelixFormatter;
     {
         [Key(0)] public int year { get; set; }
     }
+	
+	
+
+[MessagePackObject]
+public class LicenseToken
+{
+    [Key(0)] public string Issuer { get; set; } = "YourCompany";          
+    [Key(1)] public List<string> Products { get; set; } = new();          // e.g., ["Product1 1.0","Product3 1.0", "Module4"] 
+    [Key(2)] public string Edition { get; set; } = "Enterprise";          // pro,standard,ultimate
+    [Key(3)] public long IssuedAtTicks { get; set; }  =  DateTime.UtcNow.Ticks; 
+    [Key(4)] public DateTime Expiry { get; set; } = DateTime.MaxValue;     
+    [Key(5)] public string LicenseId  { get; set; }  = Guid.NewGuid().ToString("D") //	 UUID/GUID / base24 5 parts of 5 chars with - seperator, to track the license and prevent "replay" attacks.
+    [Key(6)] public string? CustomerId { get; set; } ; // user/email/company SubscriptionId 
+    [Key(7)] public List<string> BoundHardwareHashes { get; set; } = new(); // Your fuzzy components
+    [Key(8)] public Dictionary<string, string> Features { get; set; } = new(); // e.g., {"Seats": "3", "Offline": "true"} ActivationCount 
+    [Key(9)] public byte[] IssuerSignature { get; set; }  = Array.Empty<byte>();// Ed25519 signature by issuer key over the Token bytes . (64 bytes)
+}
 ```
 
 
