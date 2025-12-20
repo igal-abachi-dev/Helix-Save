@@ -442,6 +442,14 @@ The core class for handling binary serialization, file I/O, and ACID operations.
 *   **`public static void WriteAllLines(string path, string[] contents, bool portable = true)`**
 *   **`public static void WriteAllLines(string path, IEnumerable<string> contents, bool portable = true)`**
 
+
+#### **interop Helpers**
+*extract msgpack payload from Helix envelope. to interop with other langs/networking*
+
+*   **`public static void ExtractMsgPackToFile<T>(string path, bool portable = true)`**
+*   **`public static MemoryStream ExtractMsgPackToStream<T>(string path, bool portable = true)`**
+
+
 ---
 
 ### 2. `public static class HelixRepairTool`
