@@ -213,12 +213,42 @@ public class LicenseToken
 
 //for example:
 // Server-side: After filling fields 0–8
-byte[] tokenBytes = MessagePackSerializer.Serialize(token, MessagePack.Options); // Only 0–8
-token.IssuerSignature = Ed25519.Sign(tokenBytes, issuerPrivateKey); // 64 bytes
-
+		var sigBackup = token.IssuerSignature;
+        token.IssuerSignature = Array.Empty<byte>();
+        byte[] data = MessagePackSerializer.Serialize(token, Helix.Options);
+        token.IssuerSignature = sigBackup; // Restore if needed
+        using var ed = Ed25519.Create();
+        ed.ImportEd25519PrivateKeyBlob(privateIssuerKey);
+        return ed.Sign(data);
+		
+then:
+    Helix.Save(token, path);
+	
+	
 // Client-side verification
-byte[] receivedBytes = MessagePackSerializer.Serialize(loadedToken with Signature set to empty);
-bool valid = Ed25519.Verify(loadedToken.IssuerSignature, receivedBytes, issuerPrivateKey);
+ token.IssuerSignature = Array.Empty<byte>();
+        byte[] data = MessagePackSerializer.Serialize(token, Helix.Options);
+        token.IssuerSignature = receivedSignature; // Restore
+
+        using var ed = Ed25519.Create();
+        ed.ImportSubjectPublicKeyInfo(publicKey); // or ImportEd25519PublicKeyBlob if using raw
+        return ed.Verify(data, receivedSignature);
+
+then:
+    LicenseToken loaded = Helix.LoadOrNew<LicenseToken>(path);
+    if (loaded.IssuerSignature.Length == 0 || 
+        string.IsNullOrEmpty(loaded.LicenseId)
+    {
+        return false;
+    }
+    if (!Ed25519Helper.VerifyIssuer(loaded, issuerPublicKey))
+    {
+        return false;
+    }
+    if (DateTime.UtcNow > loaded.Expiry)
+    {
+        return false;
+    }
 ```
 
 
