@@ -210,6 +210,15 @@ public class LicenseToken
     [Key(8)] public Dictionary<string, string> Features { get; set; } = new(); // e.g., {"Seats": "3", "Offline": "true"} ActivationCount 
     [Key(9)] public byte[] IssuerSignature { get; set; }  = Array.Empty<byte>();// Ed25519 signature by issuer key over the Token bytes . (64 bytes)
 }
+
+//for example:
+// Server-side: After filling fields 0–8
+byte[] tokenBytes = MessagePackSerializer.Serialize(token, MessagePack.Options); // Only 0–8
+token.IssuerSignature = Ed25519.Sign(tokenBytes, issuerPrivateKey); // 64 bytes
+
+// Client-side verification
+byte[] receivedBytes = MessagePackSerializer.Serialize(loadedToken with Signature set to empty);
+bool valid = Ed25519.Verify(loadedToken.IssuerSignature, receivedBytes, issuerPrivateKey);
 ```
 
 
