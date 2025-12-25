@@ -83,6 +83,15 @@ public static class Helix
         var tmp = path + ".tmp";
         var bak = path + ".bak";
 
+
+        //using var fsMutex = new Mutex(false, $"Global\\Helix_{path.ToLowerInvariant().GetHashCode()}");
+        //try
+        //{
+        //    fsMutex.WaitOne(2000); // Wait up to 2s for lock
+        //}
+        //catch (AbandonedMutexException) { /* Previous process crashed, ignore */ }
+
+
         // 1. Calculate Metadata
 
         Span<byte> typeHash = stackalloc byte[TypeHashSize];
@@ -114,23 +123,44 @@ public static class Helix
             fs.Flush(true); // clears intermediate OS buffers in case of power failure
         }
 
-        // 4) Atomic swap (same-volume requirement; keep tmp next to target) 
+        //  Atomic swap (same-volume requirement; keep tmp next to target) 
+        // 5. Robust Atomic Swap (Retry Logic)
+        // Antivirus often locks the file for 10-50ms after creation. 
+        // We try 3 times before giving up.
+        int retries = 0;
         try
         {
-            if (File.Exists(path))
+            while (true)
             {
-                File.Replace(tmp, path, backup ? bak : null,
-                    ignoreMetadataErrors: true); // atomic replace + backup  , ensures intermediate OS buffers are flushed too
-            }
-            else
-            {
-                File.Move(tmp, path); // first save (Replace would throw if destination missing) 
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Replace(tmp, path, backup ? bak : null,
+                            ignoreMetadataErrors: true); // atomic replace + backup  , ensures intermediate OS buffers are flushed too
+                    }
+                    else
+                    {
+                        File.Move(tmp, path); // first save (Replace would throw if destination missing) 
+                    }
+
+                    break; // Success
+                }
+                catch (IOException)
+                {
+                    // Only catch IOExceptions (locks). 
+                    // Do not catch UnauthorizedAccess or PathTooLong here.
+                    if (retries++ > 3) throw;// Give up after ~200ms
+                    Thread.Sleep(50); // Wait for AV/Backup to release lock
+                }
             }
         }
         finally
         {
             if (File.Exists(tmp)) File.Delete(tmp);
+            //fsMutex.ReleaseMutex();
         }
+
         //}
         //finally
         //{
@@ -386,4 +416,19 @@ public static class Helix
     {
         [Key(0)] public byte[] Bytes { get; set; }
     }
+
+    // adopt the "Directory is the Database, File is the Row" pattern (Sharding).
+    [MessagePackObject]
+    public class IndexPointer
+    {
+        [Key(0)] public Guid TargetId { get; set; }//index filed like email hash filename to point to other guid.hlx files
+    }
+    //example Helix.Save(new IndexPointer { TargetId = user.Id }, indexPath, portable: false);
+
+    //helix is not db: uniqueness constraints, indexing, crash consistency, cross-process locking, multi-instance correctness, backups, migrations, tooling.
+
+
+    //store users/credentials in a real database (Postgres or SQL Server) and store sessions in Redis 
+
+    //maybe later will add tx transaction manager to write/recover 2+ file atomically
 }

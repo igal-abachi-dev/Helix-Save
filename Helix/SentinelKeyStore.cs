@@ -2,6 +2,7 @@
 using System.Buffers.Binary;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace HelixFormatter;
@@ -15,10 +16,10 @@ static class SentinelKeyStore
     static SentinelKeyStore()
     {
         GlobalKey = DecodeGlobalKey();
-        MachineKey = LoadOrCreateMachineKey(GetAppId());
+        MachineKey = LoadOrCreateMachineKey(GetAppId() ?? "Helix");
     }
 
-    private static string GetAppId() => Assembly.GetExecutingAssembly().GetName().Name!;
+    private static string GetAppId() => Assembly.GetEntryAssembly()?.GetName().Name!;
 
     private static byte[] LoadOrCreateMachineKey(string appName)
     {
@@ -65,6 +66,17 @@ static class SentinelKeyStore
             fs.Flush(true); // make the key file durable too 
         }
 
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // Restrict access to Owner Only (chmod 600)
+            // This prevents other users on a shared Linux server from reading the key
+            try
+            {
+                File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+            catch { /* Ignore if filesystem doesn't support it */ }
+        }
+
         //Safe Move (Handles race conditions if two instances start at once)
         try
         {
@@ -95,12 +107,14 @@ static class SentinelKeyStore
         // If a debugger is attached, we corrupt 'p1'.
         // The key generation continues normally, but the result will be wrong.
         // The Save/Load will fail the HMAC check, looking like "File Corruption"
+#if RELEASE
         if (System.Diagnostics.Debugger.IsAttached)
         {
             // ---ANTI - TAMPER / ANTI - DEBUG-- -
             // XOR with a "Bad Code" mask to silently ruin the key
             p1 ^= 0xBAD0_C0DE_DEAD_BEEF;
         }
+#endif
 
         // The key is calculated at runtime.
         byte[] buffer = new byte[32];
